@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+DROPIN_FOLDER="/etc/default/grub.d"
+DROPIN_FILE="$DROPIN_FOLDER/enable_notch.cfg"
+NOTCHRESTORE=0
+
+if [ ! -d "$DROPIN_FOLDER" ]; then
+  sudo mkdir -p "$DROPIN_FOLDER"
+fi
+
+backup_waybar_conf() {
+  mkdir -p ~/.config/waybar/notch_backup
+  cp -a ~/.config/waybar/. ~/.config/waybar/notch_backup/
+  }
+
+# user in discord reported that enabling the notch broke fractional scaling, let's force enable them via debug. what could possibly go wrong
+# enabling the notch hides part of the error bar from hyprland, rendering it unreadable in some cases so this moves it to the bottom instead
+add_hyprland_notch_workarounds() {
+  local conf="$HOME/.config/hypr/hyprland.conf"
+  local begin="# BEGIN omarchy-mac-toggle-notch"
+  local end="# END omarchy-mac-toggle-notch"
+
+  grep -qF "$begin" "$conf" && return 0
+
+  cat >> "$conf" <<EOF
+$begin
+# Notch-specific workarounds added by omarchy-mac-toggle-notch
+# First applied: $(date +%F)
+debug:disable_scale_checks = true
+debug:error_position = 1
+$end
+EOF
+  }
+
+remove_hyprland_notch_workarounds() {
+  local conf="$HOME/.config/hypr/hyprland.conf"
+  sed -i '/# BEGIN omarchy-mac-toggle-notch/,/# END omarchy-mac-toggle-notch/d' "$conf"
+}
+
+# create dropin file to use as tracking for if its the initial install or not
+if ! [ -f "$DROPIN_FILE" ]; then
+  CURRENT_LINE=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" /etc/default/grub | cut -d= -f2- | tr -d '"')
+  NEW_LINE="$CURRENT_LINE apple_dcp.show_notch=0"
+  echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW_LINE\"" | sudo tee "$DROPIN_FILE" > /dev/null
+fi
+
+# Disable notch block
+if ! sudo grep -q -- "apple_dcp.show_notch=1" "$DROPIN_FILE"; then
+  echo "Disabling Notch"
+  sudo sed -i 's/apple_dcp\.show_notch=1/apple_dcp.show_notch=0/' "$DROPIN_FILE"
+
+  if gum confirm \
+      "Would you like to restore waybar and hyprland configs to non-notch defaults?" \
+      --default=false --affirmative "Yes" --negative "No"; then
+    NOTCHRESTORE=1
+    remove_hyprland_notch_workarounds
+  fi
+
+  if [ "$NOTCHRESTORE" = "1" ]; then
+    if gum confirm \
+        "Would you like to backup existing Waybar configuration?" \
+        --default=true --affirmative "Yes" --negative "No"; then
+      backup_waybar_conf
+      mv ~/.local/share/omarchy/config/waybar/config_notch.jsonc ~/.config/waybar/config.jsonc
+    else
+      mv ~/.local/share/omarchy/config/waybar/config.jsonc ~/.config/waybar/config.jsonc
+    fi
+  fi
+
+# Enable notch block
+else
+  echo "Enabling Notch"
+  sudo sed -i 's/apple_dcp\.show_notch=0/apple_dcp.show_notch=1/' "$DROPIN_FILE"
+  echo "Enabling the notch will hide some Waybar modules."
+  echo "A new default will be applied at ~/.config/waybar/config.jsonc."
+  gum confirm "Would you like to backup existing Waybar configuration?" --default=true --affirmative "Yes" --negative "No" && backup_waybar_conf || :
+  mv ~/.local/share/omarchy/config/waybar/config_notch.jsonc ~/.config/waybar/config.jsonc
+  add_hyprland_notch_workarounds
+fi
+
+echo "Attempting to rebuild grub config"
+sudo grub-mkconfig -o /boot/grub/grub.cfg
+gum confirm "You need to reboot for the change to take effect. Reboot now?" --default=false --affirmative "Yes" --negative "No" && sudo systemctl reboot || :
+exit 0
