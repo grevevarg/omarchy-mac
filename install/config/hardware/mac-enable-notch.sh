@@ -34,34 +34,15 @@ models=(
   "Mac17,2"
 )
 
-get_id_model() {
-  udevadm info -q property -n /dev/disk0 2>/dev/null | grep -i '^ID_MODEL=' | head -n1 | cut -d= -f2- \
-  || udevadm info -e 2>/dev/null | grep -i '^ID_MODEL=' | head -n1 | cut -d= -f2- || true
-}
-
-current_model="$(get_id_model)"
-
-# don't run this if no model id at all
-if [[ -z "$current_model" ]]; then
-  exit 0
-fi
-
-# whitespace normalization
-current_model="${current_model%\"}"
-current_model="${current_model#\"}"
-current_model="${current_model#"${current_model%%[![:space:]]*}"}"
-current_model="${current_model%"${current_model##*[![:space:]]}"}"
-
-# dont run if no model matches
-
 matched=false
 for m in "${models[@]}"; do
-  if [[ "$current_model" == "$m" ]]; then
+  if udevadm info -e 2>/dev/null | grep -q -i -- "ID_MODEL=${m}"; then
     matched=true
     break
   fi
 done
 
+# exit if no model matches
 if ! $matched; then
   exit 0
 fi
