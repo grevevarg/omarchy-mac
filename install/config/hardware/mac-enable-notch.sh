@@ -69,7 +69,7 @@ if [ ! -d "$DROPIN_FOLDER" ]; then
 fi
 
 CURRENT_LINE=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" /etc/default/grub | cut -d= -f2- | tr -d '"')
-NEW_LINE="$CURRENT_LINE apple_dcp.show_notch=1"
+NEW_LINE="$CURRENT_LINE appledrm.show_notch=1"
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW_LINE\"" | sudo tee "$DROPIN_FILE" > /dev/null
 
 mv ~/.local/share/omarchy/config/waybar/config_notch.jsonc ~/.config/waybar/config.jsonc

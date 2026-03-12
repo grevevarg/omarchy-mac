@@ -42,14 +42,14 @@ remove_hyprland_notch_workarounds() {
 # create dropin file to use as tracking for if its the initial install or not
 if ! [ -f "$DROPIN_FILE" ]; then
   CURRENT_LINE=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" /etc/default/grub | cut -d= -f2- | tr -d '"')
-  NEW_LINE="$CURRENT_LINE apple_dcp.show_notch=0"
+  NEW_LINE="$CURRENT_LINE appledrm.show_notch=0"
   echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW_LINE\"" | sudo tee "$DROPIN_FILE" > /dev/null
 fi
 
 # Disable notch block
-if ! sudo grep -q -- "apple_dcp.show_notch=1" "$DROPIN_FILE"; then
+if ! sudo grep -q -- "appledrm.show_notch=1" "$DROPIN_FILE"; then
   echo "Disabling Notch"
-  sudo sed -i 's/apple_dcp\.show_notch=1/apple_dcp.show_notch=0/' "$DROPIN_FILE"
+  sudo sed -i 's/appledrm\.show_notch=1/appledrm.show_notch=0/' "$DROPIN_FILE"
 
   if gum confirm \
       "Would you like to restore waybar and hyprland configs to non-notch defaults?" \
@@ -72,7 +72,7 @@ if ! sudo grep -q -- "apple_dcp.show_notch=1" "$DROPIN_FILE"; then
 # Enable notch block
 else
   echo "Enabling Notch"
-  sudo sed -i 's/apple_dcp\.show_notch=0/apple_dcp.show_notch=1/' "$DROPIN_FILE"
+  sudo sed -i 's/appledrm\.show_notch=0/appledrm.show_notch=1/' "$DROPIN_FILE"
   echo "Enabling the notch will hide some Waybar modules."
   echo "A new default will be applied at ~/.config/waybar/config.jsonc."
   gum confirm "Would you like to backup existing Waybar configuration?" --default=true --affirmative "Yes" --negative "No" && backup_waybar_conf || :
